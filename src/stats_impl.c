@@ -11,7 +11,7 @@
 #include <math.h>
 #include <inttypes.h>
 
-#include "stats_api.h"
+#include "cm_stats_api.h"
 #include "stats_hash_f.h"
 
 #define MAX_FANOUT 128

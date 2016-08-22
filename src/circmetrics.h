@@ -31,6 +31,7 @@
 #ifndef CIRCMETRICS_H
 #define CIRCMETRICS_H
 
-#include <stats_api.h>
+#include <cm_stats_api.h>
+#include <cm_publish_api.h>
 
 #endif

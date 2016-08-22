@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <pthread.h>
-#include "stats_api.h"
+#include "cm_stats_api.h"
 
 #define Tassert assert
 

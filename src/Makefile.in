@@ -74,7 +74,7 @@ TARGETS=$(LIBCIRCMETRICS) $(LUA_FFI) test/stats_test
 
 all:	$(TARGETS)
 
-HEADERS=circmetrics.h stats_api.h
+HEADERS=circmetrics.h cm_stats_api.h cm_publish_api.h
 
 LIBCIRCMETRICS_OBJS=stats_impl.lo
 

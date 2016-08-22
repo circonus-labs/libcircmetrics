@@ -28,8 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STATS_API_H
-#define STATS_API_H
+#ifndef CM_STATS_API_H
+#define CM_STATS_API_H
 
 #include <stdbool.h>
 #include <stdint.h>
