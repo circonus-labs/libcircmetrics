@@ -41,7 +41,7 @@ writefd_ref(void *fdptr, const char *buf, size_t len) {
   return write(*(int *)fdptr, buf, len);
 }
 void *latency_m(void *cl) {
-  int i = (int)cl;
+  int i = (int)(intptr_t)cl;
   stats_add32(mtadd, 1);
   while(true) {
     stats_set_hist_intscale(hist, lrand48()%10 + 10, -2+i, 1);

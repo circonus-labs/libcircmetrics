@@ -21,7 +21,7 @@
 #endif
 
 #if defined(linux) || defined(__linux) || defined(__linux__)
-#include <linux/getcpu.h>
+#include <sched.h>
 #elif defined(__sun__) || defined(__sun) || defined(sun)
 #include <sys/processor.h>
 #endif
@@ -30,8 +30,7 @@ static __thread int circmetrics_tid;
 static inline int __get_fanout(int fanout) {
   if(unlikely(circmetrics_tid == 0)) {
 #if defined(linux) || defined(__linux) || defined(__linux__)
-    unsigned cpu = 0;
-    getcpu(&cpu, NULL, NULL);
+    unsigned cpu = sched_getcpu();
     circmetrics_tid = (int)cpu;
 #elif defined(__sun__) || defined(__sun) || defined(sun)
     circmetrics_tid = (int)getcpuid();
