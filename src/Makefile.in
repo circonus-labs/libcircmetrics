@@ -86,7 +86,7 @@ $(LIBCIRCMETRICS_V):	$(LIBCIRCMETRICS_OBJS)
 	$(SHLD) $(SHLDFLAGS) $(CFLAGS) -o $@ $(LIBCIRCMETRICS_OBJS) -lm -lcircllhist -lck
 
 test/stats_test: test/stats_test.c $(LIBCIRCMETRICS)
-	$(Q)$(CC) -I. $(CPPFLAGS) $(CFLAGS) -L. $(LDFLAGS) -I. -o $@ test/stats_test.c -lcircmetrics
+	$(Q)$(CC) -I. $(CPPFLAGS) $(CFLAGS) -L. $(LDFLAGS) -I. -o $@ test/stats_test.c -lcircmetrics $(LIBS)
 
 .c.lo:
 		echo "- compiling $<" ; \

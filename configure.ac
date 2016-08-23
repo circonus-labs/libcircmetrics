@@ -131,6 +131,7 @@ AC_CHECK_HEADER(circllhist.h, , AC_MSG_ERROR([circllhist.h not found]))
 AC_CHECK_LIB(circllhist, hist_alloc, , AC_MSG_ERROR([libcircllhist not found]))
 AC_CHECK_HEADER(ck_hs.h, , AC_MSG_ERROR([ck_hs.h not found]))
 AC_CHECK_LIB(ck, ck_hs_init, , AC_MSG_ERROR([libck not found]))
+AC_CHECK_LIB(pthread, pthread_create)
 
 SHCFLAGS="$PICFLAGS $CFLAGS"
 AC_SUBST(SHCFLAGS)
