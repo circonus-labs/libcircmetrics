@@ -87,5 +87,6 @@ int main() {
     sleep(1);
   }
 
+  printf("\n");
   exit(0);
 }
