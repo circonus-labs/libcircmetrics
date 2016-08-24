@@ -110,7 +110,7 @@ install-libs:    $(LIBCIRCMETRICS) $(LUA_FFI)
 install:	install-headers install-libs
 
 tests:	test/stats_test
-	LD_PRELOAD=./libcircmetrics.so test/stats_test
+	LD_LIBRARY_PATH=. test/stats_test
 
 clean:
 	rm -f *.lo *.o $(TARGETS)
