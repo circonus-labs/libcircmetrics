@@ -1,7 +1,7 @@
 *~
 *.dylib
 *.dSYM
-*.so
+*.so*
 *.o
 *.lo
 *.swp
