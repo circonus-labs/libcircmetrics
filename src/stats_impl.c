@@ -262,7 +262,7 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
       ck_spinlock_init(&h->fan[i].cpu.spinlock);
     }
     h->hist_aggr = hist_alloc();
-    h->valueptr = h->fan[i].cpu.hist;
+    h->valueptr = h->hist_aggr;
   }
   else {
     stats_observe(h, type, &h->store);
