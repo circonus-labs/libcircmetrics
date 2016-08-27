@@ -180,6 +180,10 @@ bool
 bool
   stats_set_hist_intscale(stats_handle_t *h, int64_t val, int scale, uint64_t cnt);
 
+/* Prints a simple name for a statistics type */
+const char *
+  stats_type_name(stats_type_t);
+
 /* Prints json via the outf function
  * hist_since_last as true will only show the histogram counts since last
  * invocation, false will show over all of time.

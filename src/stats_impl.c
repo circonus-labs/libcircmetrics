@@ -151,6 +151,21 @@ stats_ns_alloc(stats_recorder_t *rec) {
   return ns;
 }
 
+const char *
+stats_type_name(stats_type_t t) {
+  switch(t) {
+  case STATS_TYPE_STRING: return "string";
+  case STATS_TYPE_INT32: return "int32";
+  case STATS_TYPE_UINT32: return "uint32";
+  case STATS_TYPE_INT64: return "int64";
+  case STATS_TYPE_UINT64: return "uint64";
+  case STATS_TYPE_COUNTER: return "counter";
+  case STATS_TYPE_DOUBLE: return "double";
+  case STATS_TYPE_HISTOGRAM: return "histogram";
+  }
+  return "unknown";
+}
+
 stats_recorder_t *
 stats_recorder_alloc(void) {
   stats_recorder_t *rec = calloc(1, sizeof(*rec));
