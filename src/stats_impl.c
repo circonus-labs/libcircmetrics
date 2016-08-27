@@ -332,6 +332,7 @@ stats_handle_type(stats_handle_t *h) {
 
 bool
 stats_observe(stats_handle_t *h, stats_type_t type, void *memory) {
+  if(h == NULL) return false;
   // Can't observe a histogram as they aren't thread safe
   if(h->type == STATS_TYPE_HISTOGRAM) return false;
   if(h->type != type) return false;
@@ -341,6 +342,7 @@ stats_observe(stats_handle_t *h, stats_type_t type, void *memory) {
 
 bool
 stats_invoke(stats_handle_t *h, stats_invocation_func_t cb, void *closure) {
+  if(h == NULL) return false;
   h->cb = cb;
   h->cb_closure = closure;
   return true;
@@ -348,7 +350,7 @@ stats_invoke(stats_handle_t *h, stats_invocation_func_t cb, void *closure) {
 
 bool
 stats_set_hist(stats_handle_t *h, double d, uint64_t cnt) {
-  if(h->type != STATS_TYPE_HISTOGRAM) return false;
+  if(h == NULL || h->type != STATS_TYPE_HISTOGRAM) return false;
   int cpu = __get_fanout(h->fanout);
   ck_spinlock_lock(&h->fan[cpu].cpu.spinlock);
   hist_insert(h->fan[cpu].cpu.hist, d, cnt);
@@ -357,15 +359,17 @@ stats_set_hist(stats_handle_t *h, double d, uint64_t cnt) {
 }
 bool
 stats_set_hist_intscale(stats_handle_t *h, int64_t val, int scale, uint64_t cnt) {
-  if(h->type != STATS_TYPE_HISTOGRAM) return false;
+  if(h == NULL || h->type != STATS_TYPE_HISTOGRAM) return false;
   int cpu = __get_fanout(h->fanout);
   ck_spinlock_lock(&h->fan[cpu].cpu.spinlock);
   hist_insert_intscale(h->fan[cpu].cpu.hist, val, scale, cnt);
   ck_spinlock_unlock(&h->fan[cpu].cpu.spinlock);
+assert(val >= 0);
   return true;
 }
 
 bool stats_add32(stats_handle_t *h, int32_t cnt) {
+  if(h == NULL) return false;
   if(h->type == STATS_TYPE_INT64 || h->type == STATS_TYPE_UINT64 ||
      h->type == STATS_TYPE_COUNTER)
     return stats_add64(h, (int64_t)cnt);
@@ -376,6 +380,7 @@ bool stats_add32(stats_handle_t *h, int32_t cnt) {
 }
 
 bool stats_add64(stats_handle_t *h, int64_t cnt) {
+  if(h == NULL) return false;
   if(h->type == STATS_TYPE_COUNTER) {
     int cpu = __get_fanout(h->fanout);
     ck_pr_add_64(&h->fan[cpu].cpu.incr, cnt);
@@ -390,6 +395,7 @@ bool stats_add64(stats_handle_t *h, int64_t cnt) {
 bool
 stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
   int len, i;
+  if(h == NULL) return false;
   if(h->type == STATS_TYPE_HISTOGRAM) {
     const histogram_t * const * hptr = (const histogram_t * const *)&ptr;
     int cpu = __get_fanout(h->fanout);
