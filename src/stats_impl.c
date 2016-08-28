@@ -364,7 +364,6 @@ stats_set_hist_intscale(stats_handle_t *h, int64_t val, int scale, uint64_t cnt)
   ck_spinlock_lock(&h->fan[cpu].cpu.spinlock);
   hist_insert_intscale(h->fan[cpu].cpu.hist, val, scale, cnt);
   ck_spinlock_unlock(&h->fan[cpu].cpu.spinlock);
-assert(val >= 0);
   return true;
 }
 
