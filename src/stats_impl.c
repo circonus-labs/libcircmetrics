@@ -325,6 +325,26 @@ stats_register(stats_ns_t *ns, const char *name, stats_type_t type) {
   return stats_register_fanout(ns, name, type, 0);
 }
 
+bool
+stats_handle_clear(stats_handle_t *h) {
+  int i;
+  /* We only support clearing histograms and counters */
+  switch(h->type) {
+  case STATS_TYPE_HISTOGRAM:
+    for(i=0;i<h->fanout;i++)
+      hist_clear(h->fan[i].cpu.hist);
+    hist_clear(h->hist_aggr);
+    return true;
+  case STATS_TYPE_COUNTER:
+    for(i=0;i<h->fanout;i++)
+      h->fan[i].cpu.incr = 0;
+    return true;
+  default:
+    break;
+  }
+  return false;
+}
+
 stats_type_t
 stats_handle_type(stats_handle_t *h) {
   return h->type;
@@ -480,6 +500,25 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
   return true;
 }
 
+static int
+stats_ns_clear(stats_ns_t *ns, stats_type_t type) {
+  int cleared = 0;
+  void *vc;
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  while(ck_hs_next(&ns->map, &iterator, &vc)) {
+    stats_container_t *c = vc;
+    if(c->ns) cleared += stats_ns_clear(c->ns, type);
+    if(c->handle && c->handle->type == type) {
+      if(stats_handle_clear(c->handle)) cleared++;
+    }
+  }
+  return cleared;
+}
+
+int
+stats_recorder_clear(stats_recorder_t *rec, stats_type_t type) {
+  return stats_ns_clear(rec->global, type);
+}
 
 #define OUTF(cl,k,l,a) do { \
   int rv = outf((cl), (k), (l)); \

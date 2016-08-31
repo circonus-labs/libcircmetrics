@@ -53,6 +53,12 @@ typedef enum stats_type_t {
 stats_recorder_t *
   stats_recorder_alloc(void);
 
+/* Attempt to clear all handles within a recorder.
+ * Returns the numner of handles cleared.
+ */
+int
+  stats_recorder_clear(stats_recorder_t *rec, stats_type_t);
+
 /* Get the global namespace for the recorder */
 stats_ns_t *
   stats_recorder_global_ns(stats_recorder_t *);
@@ -86,6 +92,15 @@ stats_handle_t *
 stats_handle_t *
   stats_register_fanout(stats_ns_t *, const char *name, stats_type_t,
                                int fanout);
+
+/* If possible clear the handle to an initial state.
+ * If you looking at some bit of memory for your handle,
+ * this will fail as it would be dangerous for the library
+ * to intrusively set it.  In that case you own the memory
+ * and you can reset it yourself.
+ */
+bool
+  stats_handle_clear(stats_handle_t *);
 
 /* Returns the registered type of the handle */
 stats_type_t
