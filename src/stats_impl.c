@@ -31,20 +31,23 @@ static inline int __get_fanout(int fanout) {
   if(unlikely(circmetrics_tid == 0)) {
 #if defined(linux) || defined(__linux) || defined(__linux__)
     unsigned cpu = sched_getcpu();
-    circmetrics_tid = (int)cpu;
+    circmetrics_tid = (int)cpu + 1;
 #elif defined(__sun__) || defined(__sun) || defined(sun)
-    circmetrics_tid = (int)getcpuid();
-#else
-    circmetrics_tid = (int)pthread_self();
-    if(circmetrics_tid > 0x100) {
-      int f = circmetrics_tid;
-      circmetrics_tid = 0;
-      while(f) {
-        circmetrics_tid = circmetrics_tid | (f & 0x7f);
-        f >>= 7;
-      }
-    }
+    circmetrics_tid = (int)getcpuid() + 1;
 #endif
+    if(circmetrics_tid <= 0) {
+      circmetrics_tid = (int)pthread_self();
+      if(circmetrics_tid < 0) circmetrics_tid = 0 - circmetrics_tid;
+      if(circmetrics_tid > 0x100) {
+        int f = circmetrics_tid;
+        circmetrics_tid = 0;
+        while(f) {
+          circmetrics_tid = circmetrics_tid ^ (f & 0x7f);
+          f >>= 7;
+        }
+      }
+      circmetrics_tid++;
+    }
   }
   return circmetrics_tid % fanout;
 }
