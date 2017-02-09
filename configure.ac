@@ -106,6 +106,7 @@ case $host in
 	MODULELD="$CC -shared"
 	LDFLAGS="$LDFLAGS -export-dynamic -L/usr/local/lib"
 	CFLAGS="$CFLAGS -DCOMPAT_43TTY -I/usr/local/include"
+	SHLD="$CC -shared"
 	MODULEEXT=so
 	RLDFLAG="-Wl,--rpath="
 	;;

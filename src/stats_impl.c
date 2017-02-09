@@ -35,7 +35,7 @@ static inline int __get_fanout(int fanout) {
 #elif defined(__sun__) || defined(__sun) || defined(sun)
     circmetrics_tid = (int)getcpuid();
 #else
-    circmetrics_tid = (int)pthread_self();
+    circmetrics_tid = (int)(intptr_t)pthread_self();
     if(circmetrics_tid > 0x100) {
       int f = circmetrics_tid;
       circmetrics_tid = 0;
