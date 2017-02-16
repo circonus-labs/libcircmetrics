@@ -46,7 +46,8 @@ typedef enum stats_type_t {
   STATS_TYPE_UINT64,
   STATS_TYPE_COUNTER,
   STATS_TYPE_DOUBLE,
-  STATS_TYPE_HISTOGRAM
+  STATS_TYPE_HISTOGRAM,
+  STATS_TYPE_HISTOGRAM_FAST
 } stats_type_t;
 
 /* Allocate a recorder object */
