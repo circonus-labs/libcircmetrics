@@ -77,8 +77,7 @@ struct stats_handle_t {
     struct {
       histogram_t             *hist;
       uint64_t                 incr;
-      /* need progress guarantees, standard spinlock is FAS which is not fair */
-      ck_spinlock_ticket_t     spinlock;
+      pthread_mutex_t          mutex;
     }                        cpu;
   }                       *fan;
   int                      fanout;
@@ -97,8 +96,7 @@ struct stats_handle_t {
     int                      len;
   }                        str;
   char                   **strref;
-  /* need progress guarantees, standard spinlock is FAS which is not fair */
-  ck_spinlock_ticket_t   spinlock;
+  pthread_mutex_t        mutex;
 };
 
 // The one true container for all things
@@ -287,7 +285,7 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
     int i;
     for(i=0;i<h->fanout;i++) {
       h->fan[i].cpu.hist = hist_alloc();
-      ck_spinlock_ticket_init(&h->fan[i].cpu.spinlock);
+      pthread_mutex_init(&h->fan[i].cpu.mutex, NULL);
     }
     h->hist_aggr = hist_alloc();
     h->valueptr = h->hist_aggr;
@@ -295,7 +293,7 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
   else {
     stats_observe(h, type, &h->store);
   }
-  ck_spinlock_ticket_init(&h->spinlock);
+  pthread_mutex_init(&h->mutex, NULL);
   return h;
 }
 
@@ -389,9 +387,9 @@ stats_set_hist(stats_handle_t *h, double d, uint64_t cnt) {
   if(h == NULL || (h->type != STATS_TYPE_HISTOGRAM &&
                    h->type != STATS_TYPE_HISTOGRAM_FAST)) return false;
   int cpu = __get_fanout(h->fanout);
-  ck_spinlock_ticket_lock(&h->fan[cpu].cpu.spinlock);
+  pthread_mutex_lock(&h->fan[cpu].cpu.mutex);
   hist_insert(h->fan[cpu].cpu.hist, d, cnt);
-  ck_spinlock_ticket_unlock(&h->fan[cpu].cpu.spinlock);
+  pthread_mutex_unlock(&h->fan[cpu].cpu.mutex);
   return true;
 }
 bool
@@ -399,9 +397,9 @@ stats_set_hist_intscale(stats_handle_t *h, int64_t val, int scale, uint64_t cnt)
   if(h == NULL || (h->type != STATS_TYPE_HISTOGRAM &&
                    h->type != STATS_TYPE_HISTOGRAM_FAST)) return false;
   int cpu = __get_fanout(h->fanout);
-  ck_spinlock_ticket_lock(&h->fan[cpu].cpu.spinlock);
+  pthread_mutex_lock(&h->fan[cpu].cpu.mutex);
   hist_insert_intscale(h->fan[cpu].cpu.hist, val, scale, cnt);
-  ck_spinlock_ticket_unlock(&h->fan[cpu].cpu.spinlock);
+  pthread_mutex_unlock(&h->fan[cpu].cpu.mutex);
   return true;
 }
 
@@ -446,7 +444,7 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
       return true;
     }
     // For histogram types, we can actually allow setting from other types
-    ck_spinlock_ticket_lock(&h->fan[cpu].cpu.spinlock);
+    pthread_mutex_lock(&h->fan[cpu].cpu.mutex);
     switch(type) {
     case STATS_TYPE_COUNTER:
     case STATS_TYPE_STRING:
@@ -470,7 +468,7 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
       hist_insert(h->fan[cpu].cpu.hist, *((double *)ptr), 1);
       break;
     }
-    ck_spinlock_ticket_unlock(&h->fan[cpu].cpu.spinlock);
+    pthread_mutex_unlock(&h->fan[cpu].cpu.mutex);
     return rv;
   }
   if(h->type != type) return false;
@@ -493,16 +491,14 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
     char *tofree = NULL;
     if(h->str.len < len) {
       char *replace = malloc(len);
-      ck_spinlock_ticket_lock(&h->spinlock);
       tofree = h->str.value;
       h->str.value = replace;
       h->str.len = len;
-    } else {
-      ck_spinlock_ticket_lock(&h->spinlock);
     }
+    pthread_mutex_lock(&h->mutex);
     memcpy(h->str.value, (char *)ptr, len);
     h->valueptr = h->strref;
-    ck_spinlock_ticket_unlock(&h->spinlock);
+    pthread_mutex_unlock(&h->mutex);
     free(tofree);
     break;
   case STATS_TYPE_INT32:
@@ -630,11 +626,11 @@ stats_val_output_json(stats_handle_t *h, bool hist_since_last,
   switch(h->type) {
   case STATS_TYPE_STRING:
     OUTF(cl,"\"",1,written);
-    ck_spinlock_ticket_lock(&h->spinlock);
+    pthread_mutex_lock(&h->mutex);
     len = strlen(*(char **)h->valueptr);
     if(len >= sizeof(string_copy)) len = sizeof(string_copy)-1;
     memcpy(string_copy, *(char **)h->valueptr, len);
-    ck_spinlock_ticket_unlock(&h->spinlock);
+    pthread_mutex_unlock(&h->mutex);
     string_copy[len] = '\0';
     rv = yajl_string_encode(outf, cl, string_copy, len);
     if(rv < 0) return -1;
@@ -684,12 +680,12 @@ stats_val_output_json(stats_handle_t *h, bool hist_since_last,
       histogram_t *copy = hist_alloc_nbins(h->last_size * h->fanout); // upper bound
       for(i=0;i<h->fanout;i++) {
         const histogram_t * const * hptr = (const histogram_t * const *)&h->fan[i].cpu.hist;
-        ck_spinlock_ticket_lock(&h->fan[i].cpu.spinlock);
+        pthread_mutex_lock(&h->fan[i].cpu.mutex);
         hist_accumulate(copy, hptr, 1);
         if(hist_since_last) {
           hist_clear(h->fan[i].cpu.hist);
         }
-        ck_spinlock_ticket_unlock(&h->fan[i].cpu.spinlock);
+        pthread_mutex_unlock(&h->fan[i].cpu.mutex);
       }
       if(hist_since_last) hist_accumulate(h->hist_aggr, (const histogram_t *const *)&copy, 1);
       else hist_accumulate(copy, (const histogram_t *const *)&h->hist_aggr, 1);
