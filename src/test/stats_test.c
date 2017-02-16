@@ -66,7 +66,7 @@ int main() {
   Tassert(ns1 == stats_register_ns(rec, NULL, "ns1"));
   register_globals(ns1);
 
-  hist = stats_register(global, "latency", STATS_TYPE_HISTOGRAM);
+  hist = stats_register(global, "latency", STATS_TYPE_HISTOGRAM_FAST);
 
   int fd = 1;
   stats_recorder_output_json(rec, true, simple, writefd_ref, &fd);
