@@ -492,10 +492,12 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
     if(h->str.len < len) {
       char *replace = malloc(len);
       tofree = h->str.value;
+      pthread_mutex_lock(&h->mutex);
       h->str.value = replace;
       h->str.len = len;
+    } else {
+      pthread_mutex_lock(&h->mutex);
     }
-    pthread_mutex_lock(&h->mutex);
     memcpy(h->str.value, (char *)ptr, len);
     h->valueptr = h->strref;
     pthread_mutex_unlock(&h->mutex);
