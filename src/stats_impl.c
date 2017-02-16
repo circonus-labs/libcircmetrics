@@ -454,7 +454,7 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
       break;
     }
     ck_spinlock_ticket_unlock(&h->fan[cpu].cpu.spinlock);
-    return true;
+    return rv;
   }
   if(h->type != type) return false;
   switch(type) {
