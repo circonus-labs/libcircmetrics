@@ -420,7 +420,6 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
   if(h->type == STATS_TYPE_HISTOGRAM) {
     const histogram_t * const * hptr = (const histogram_t * const *)&ptr;
     int cpu = __get_fanout(h->fanout);
-    double d;
     bool rv = true;
     if(ptr == NULL) {
       for(i=0;i<h->fanout;i++) {
@@ -662,7 +661,6 @@ stats_val_output_json(stats_handle_t *h, bool hist_since_last,
     {
       int i;
       bool needs_comma = false;
-      histogram_t *interest = h->hist_aggr;
       histogram_t *copy = hist_alloc_nbins(h->last_size + 10); // good guess to prevent allocs
       for(i=0;i<h->fanout;i++) {
         const histogram_t * const * hptr = (const histogram_t * const *)&h->fan[i].cpu.hist;
