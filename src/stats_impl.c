@@ -276,7 +276,7 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
     int i;
     for(i=0;i<h->fanout;i++) {
       h->fan[i].cpu.hist = hist_fast_alloc();
-      ck_spinlock_ticket_init(&h->fan[i].cpu.spinlock);
+      pthread_mutex_init(&h->fan[i].cpu.mutex, NULL);
     }
     h->hist_aggr = hist_fast_alloc();
     h->valueptr = h->hist_aggr;
