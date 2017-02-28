@@ -182,7 +182,7 @@ bool
 
 #define stats_set_str(h, v) do { \
   char *vp = (char *)v; \
-  stats_set(h, STATS_TYPE_STRING, v); \
+  stats_set(h, STATS_TYPE_STRING, vp); \
 } while(0)
 
 /* Specific to histograms, set with a count.
