@@ -51,6 +51,7 @@ static inline int __get_fanout(int fanout) {
 
 struct stats_recorder_t {
   struct stats_ns_t *global;
+  pthread_rwlock_t free_lock;
 };
 struct stats_ns_freshnode {
   stats_ns_update_func_t f;
@@ -104,7 +105,7 @@ struct stats_handle_t {
 typedef struct stats_container_t {
   stats_ns_t     *ns;
   stats_handle_t *handle;
-  const char     *key;
+  char           *key;
   int             len;
 } stats_container_t;
 
@@ -133,11 +134,50 @@ static bool hs_compare(const void *previous, const void *compare) {
 }
 
 static void
+stats_container_free(stats_container_t *c) {
+  free(c->key);
+  free(c);
+}
+
+static void
+stats_handle_free(stats_handle_t *h) {
+  if(h == NULL) return;
+  if(h->type == STATS_TYPE_HISTOGRAM_FAST) {
+    int i;
+    for(i=0;i<h->fanout;i++) {
+      hist_free(h->fan[i].cpu.hist);
+      pthread_mutex_destroy(&h->fan[i].cpu.mutex);
+    }
+    hist_free(h->hist_aggr);
+  }
+  else if(h->type == STATS_TYPE_HISTOGRAM) {
+    int i;
+    for(i=0;i<h->fanout;i++) {
+      hist_free(h->fan[i].cpu.hist);
+      pthread_mutex_destroy(&h->fan[i].cpu.mutex);
+    }
+    hist_free(h->hist_aggr);
+  }
+  free(h->fan);
+  pthread_mutex_destroy(&h->mutex);
+}
+
+static void
 stats_ns_free(stats_ns_t *ns) {
+  int cleared = 0;
+  void *vc;
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
   if(ns == NULL) return;
+  while(ck_hs_next(&ns->map, &iterator, &vc)) {
+    stats_container_t *c = vc;
+    if(c->ns) stats_ns_free(c->ns);
+    if(c->handle) stats_handle_free(c->handle);
+    stats_container_free(c);
+  }
   pthread_mutex_destroy(&ns->lock);
   free(ns);
 }
+
 static stats_ns_t *
 stats_ns_alloc(stats_recorder_t *rec) {
   stats_ns_t *ns = calloc(1, sizeof(*ns));
@@ -171,6 +211,7 @@ stats_recorder_t *
 stats_recorder_alloc(void) {
   stats_recorder_t *rec = calloc(1, sizeof(*rec));
   rec->global = stats_ns_alloc(rec);
+  pthread_rwlock_init(&rec->free_lock, NULL);
   return rec;
 }
 
@@ -186,7 +227,7 @@ stats_ns_add_container(stats_ns_t *ns, const char *name) {
 
   if(strchr(name, '"')) return NULL;
 
-  nc.key = name;
+  nc.key = (char *)name;
   nc.len = strlen(name);
   // hashv won't change
   hashv = CK_HS_HASH(&ns->map, hs_hash, &nc);
@@ -204,12 +245,48 @@ stats_ns_add_container(stats_ns_t *ns, const char *name) {
       }
       pthread_mutex_unlock(&ns->lock);
       if(toadd) {
-        free((void *)toadd->key);
+        free(toadd->key);
         free(toadd);
       }
     }
   } while(prev == NULL);
   return prev;
+}
+bool
+stats_deregister_ns(stats_recorder_t *rec, stats_ns_t *parent, stats_ns_t *ns) {
+  bool success = false;
+  if(rec == NULL && parent != NULL) rec = parent->rec;
+  if(rec == NULL && ns != NULL) rec = ns->rec;
+  if(parent == NULL && rec != NULL) parent = rec->global;
+  if(rec == NULL || parent == NULL || ns == NULL) return false;
+  if(parent->rec != rec || ns->rec != rec) return false;
+
+  pthread_rwlock_wrlock(&rec->free_lock);
+  pthread_mutex_lock(&parent->lock);
+  pthread_mutex_lock(&ns->lock);
+
+  long hashv = CK_HS_HASH(&parent->map, hs_hash, ns);
+  stats_container_t *container = ck_hs_get(&parent->map, hashv, ns);
+  /* We look it up by name, but it must be the actual namespace we passed in */
+  if(container && container->ns == ns) {
+    ck_hs_remove(&parent->map, hashv, ns);
+  } else {
+    /* This can happen if someon has a.b.foo and a.c.foo and they attempt
+     * to free a.c.foo from a.b parent... "foo" matches, but it isn't the
+     * right namespace. */
+    container = NULL;
+  }
+
+  pthread_mutex_unlock(&ns->lock);
+  pthread_mutex_unlock(&parent->lock);
+  pthread_rwlock_unlock(&rec->free_lock);
+
+  if(container) { /* it was actually removed */
+    stats_ns_free(container->ns);
+    stats_container_free(container);
+    success = true;
+  }
+  return success;
 }
 
 stats_ns_t *
@@ -295,18 +372,6 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
   }
   pthread_mutex_init(&h->mutex, NULL);
   return h;
-}
-
-static void
-stats_handle_free(stats_handle_t *h) {
-  int i;
-  if(h == NULL) return;
-  for(i=0;i<h->fanout;i++) {
-    if(h->fan[i].cpu.hist) hist_free(h->fan[i].cpu.hist);
-  }
-  free(h->fan);
-  if(h->hist_aggr) hist_free(h->hist_aggr);
-  free(h);
 }
 
 stats_handle_t *
@@ -770,5 +835,9 @@ ssize_t
 stats_recorder_output_json(stats_recorder_t *rec,
                            bool hist_since_last, bool simple,
                            ssize_t (*outf)(void *, const char *, size_t), void *cl) {
-  return stats_con_output_json(rec->global, NULL, hist_since_last, simple, outf, cl);
+  ssize_t rv;
+  pthread_rwlock_rdlock(&rec->free_lock);
+  rv = stats_con_output_json(rec->global, NULL, hist_since_last, simple, outf, cl);
+  pthread_rwlock_unlock(&rec->free_lock);
+  return rv;
 }
