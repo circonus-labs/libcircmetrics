@@ -73,7 +73,7 @@ stats_ns_t *
 /* Deregister and free a namespace.
  * Results are undefined if ns is still being used during or after this call
  * if the return value is true.
- * This function registers ns from parent within rec. If successful, ns is
+ * This function deregisters ns from parent within rec. If successful, ns is
  * freed.
  */
 bool
