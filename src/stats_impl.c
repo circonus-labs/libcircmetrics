@@ -538,6 +538,80 @@ stats_recorder_clear(stats_recorder_t *rec, stats_type_t type) {
   return stats_ns_clear(rec->global, type);
 }
 
+void *
+stats_get(stats_handle_t *h) {
+  if (!h) {
+    return NULL;
+  }
+  return h->valueptr;
+}
+
+#define STATS_GET_IMPL(itype, shortname)                                \
+  itype stats_get_ ## shortname(stats_handle_t *h) {                    \
+    if (!h) {                                                           \
+      return 0;                                                         \
+    }                                                                   \
+    switch(h->type) {                                                   \
+    case STATS_TYPE_HISTOGRAM:                                          \
+    case STATS_TYPE_HISTOGRAM_FAST:                                     \
+    case STATS_TYPE_STRING:                                             \
+      return 0;                                                         \
+    case STATS_TYPE_COUNTER:                                            \
+      {                                                                 \
+        int i;                                                          \
+        uint64_t sum = 0;                                               \
+        for(i=0;i<h->fanout;i++)                                        \
+          sum += ck_pr_load_64(&h->fan[i].cpu.incr);                    \
+        return (itype)sum;                                              \
+      }                                                                 \
+    default:                                                            \
+      return *(itype *)h->valueptr;                                     \
+    };                                                                  \
+  }
+
+STATS_GET_IMPL(int32_t, i32)
+STATS_GET_IMPL(uint32_t, u32)
+STATS_GET_IMPL(int64_t, i64)
+STATS_GET_IMPL(uint64_t, u64)
+STATS_GET_IMPL(double, d)
+
+const char *
+stats_get_str(stats_handle_t *h) {
+  if (!h) {
+    return NULL;
+  }
+  if (h->type == STATS_TYPE_STRING) {
+    return *(const char **)h->valueptr;
+  }
+  return NULL;
+}
+
+histogram_t *
+stats_get_hist(stats_handle_t *h) {
+  if (!h) {
+    return NULL;
+  }
+
+  switch(h->type) {
+  case STATS_TYPE_HISTOGRAM_FAST:
+  case STATS_TYPE_HISTOGRAM:
+    {
+      int i;
+      histogram_t *copy = hist_alloc_nbins(h->last_size * h->fanout); // upper bound
+      for(i=0;i<h->fanout;i++) {
+        const histogram_t * const * hptr = (const histogram_t * const *)&h->fan[i].cpu.hist;
+        pthread_mutex_lock(&h->fan[i].cpu.mutex);
+        hist_accumulate(copy, hptr, 1);
+        pthread_mutex_unlock(&h->fan[i].cpu.mutex);
+      }
+      hist_accumulate(copy, (const histogram_t *const *)&h->hist_aggr, 1);
+      return copy;
+    }
+  }
+  return NULL;
+}
+
+
 #define OUTF(cl,k,l,a) do { \
   int rv = outf((cl), (k), (l)); \
   if(rv != (l)) return -1; \

@@ -33,6 +33,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <circllhist.h>
 
 typedef struct stats_recorder_t stats_recorder_t;
 typedef struct stats_ns_t stats_ns_t;
@@ -195,6 +196,30 @@ bool
  */
 bool
   stats_set_hist_intscale(stats_handle_t *h, int64_t val, int scale, uint64_t cnt);
+
+/*
+ * Get the value underlying a handle.  Minimal effort is made to convert between types
+ * if the passed handle type differs from the function type.
+ *
+ */
+void *
+  stats_get(stats_handle_t * h);
+int32_t
+  stats_get_i32(stats_handle_t *h);
+uint32_t
+  stats_get_u32(stats_handle_t *h);
+int64_t
+  stats_get_i64(stats_handle_t *h);
+uint64_t
+  stats_get_u64(stats_handle_t *h);
+double
+  stats_get_d(stats_handle_t *h);
+const char *
+  stats_get_str(stats_handle_t *h);
+
+/* returns allocated memory in all cases, caller must free the returned histogram_t */
+histogram_t *
+  stats_get_hist(stats_handle_t *h);
 
 /* Prints a simple name for a statistics type */
 const char *
