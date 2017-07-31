@@ -26,8 +26,8 @@
 #include <sys/processor.h>
 #endif
 
-static __thread int circmetrics_tid;
-static inline int __get_fanout(int fanout) {
+static __thread unsigned int circmetrics_tid;
+static inline unsigned int __get_fanout(unsigned int fanout) {
   if(unlikely(circmetrics_tid == 0)) {
 #if defined(linux) || defined(__linux) || defined(__linux__)
     unsigned cpu = sched_getcpu();
