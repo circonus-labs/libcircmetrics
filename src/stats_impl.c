@@ -480,8 +480,8 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
       return true;
     }
     return false;
-  case STATS_TYPE_HISTOGRAM: assert(type != STATS_TYPE_HISTOGRAM);
-  case STATS_TYPE_HISTOGRAM_FAST: assert(type != STATS_TYPE_HISTOGRAM_FAST);
+  case STATS_TYPE_HISTOGRAM: assert(type != STATS_TYPE_HISTOGRAM); break;
+  case STATS_TYPE_HISTOGRAM_FAST: assert(type != STATS_TYPE_HISTOGRAM_FAST); break;
   case STATS_TYPE_STRING:
     if(ptr == NULL) {
       h->valueptr = NULL;
