@@ -450,8 +450,10 @@ stats_set(stats_handle_t *h, stats_type_t type, void *ptr) {
     case STATS_TYPE_STRING:
       rv = false; break; // but not these types
     case STATS_TYPE_HISTOGRAM:
+      /* intentional fallthrough */
     case STATS_TYPE_HISTOGRAM_FAST:
       hist_accumulate(h->fan[cpu].cpu.hist, hptr, 1);
+      break;
     case STATS_TYPE_INT32:
       hist_insert_intscale(h->fan[cpu].cpu.hist, *((int32_t *)ptr), 0, 1);
       break;
