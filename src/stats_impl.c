@@ -732,7 +732,9 @@ stats_con_output_json(stats_ns_t *ns, stats_handle_t *h, bool hist_since_last,
           c->handle->type != STATS_TYPE_HISTOGRAM_FAST)) {
         if(ns_written) OUTF(cl, ",", 1, written);
         OUTF(cl, "\"", 1, written);
-        OUTF(cl, c->key, c->len, written);
+        ns_written = yajl_string_encode(outf, cl, c->key, c->len);
+        if(ns_written < 0) return -1;
+        written += ns_written;
         OUTF(cl, "\":", 2, written);
         ns_written = stats_con_output_json(c->ns, c->handle, hist_since_last, simple, outf, cl);
         if(ns_written < 0) return -1;
