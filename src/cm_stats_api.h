@@ -70,6 +70,15 @@ stats_ns_t *
 stats_ns_t *
   stats_register_ns(stats_recorder_t *, stats_ns_t *, const char *);
 
+/* Deregister and free a namespace.
+ * Results are undefined if ns is still being used during or after this call
+ * if the return value is true.
+ * This function deregisters ns from parent within rec. If successful, ns is
+ * freed.
+ */
+bool
+  stats_deregister_ns(stats_recorder_t *rec, stats_ns_t *parent, stats_ns_t *ns);
+
 typedef void (*stats_ns_update_func_t)(stats_ns_t *, void *closure);
 
 /* Functions registered in this way will fire before a namespace is walked for
