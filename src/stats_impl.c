@@ -756,7 +756,7 @@ stats_con_output_json(stats_ns_t *ns, stats_handle_t *h, bool hist_since_last,
         case STATS_TYPE_UINT64: OUTF(cl, "L", 1, written); break;
         case STATS_TYPE_DOUBLE:
         case STATS_TYPE_HISTOGRAM_FAST:
-        case STATS_TYPE_HISTOGRAM: OUTF(cl, "n", 1, written); break;
+        case STATS_TYPE_HISTOGRAM: OUTF(cl, "h", 1, written); break;
       }
       OUTF(cl, "\",\"_value\":", 11, written);
     }
