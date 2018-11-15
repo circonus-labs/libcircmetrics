@@ -556,6 +556,12 @@ stats_recorder_clear(stats_recorder_t *rec, stats_type_t type) {
   (a) += rv; \
 } while(0)
 
+#define OUTBLOCK(cl,k,l,a,block) do { \
+  int rv = outf((cl), (k), (l)); \
+  if(rv != (l)) block \
+  (a) += rv; \
+} while(0)
+
 /* yajl_string_encode is borrowed and hacked from libyajl
  *
  * Copyright (c) 2007-2014, Lloyd Hilaiel <me@lloyd.io>
@@ -735,14 +741,22 @@ stats_con_output_json(stats_ns_t *ns, stats_handle_t *h, bool hist_since_last,
       if(!simple || c->ns != NULL ||
          (c->handle->type != STATS_TYPE_HISTOGRAM &&
           c->handle->type != STATS_TYPE_HISTOGRAM_FAST)) {
-        if(ns_written) OUTF(cl, ",", 1, written);
-        OUTF(cl, "\"", 1, written);
+        if(ns_written) {
+          OUTBLOCK(cl, ",", 1, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
+        }
+        OUTBLOCK(cl, "\"", 1, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
         ns_written = yajl_string_encode(outf, cl, c->key, c->len);
-        if(ns_written < 0) return -1;
+        if(ns_written < 0) {
+          pthread_rwlock_unlock(&ns->lock);
+          return -1;
+        }
         written += ns_written;
-        OUTF(cl, "\":", 2, written);
+        OUTBLOCK(cl, "\":", 2, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
         ns_written = stats_con_output_json(c->ns, c->handle, hist_since_last, simple, outf, cl);
-        if(ns_written < 0) return -1;
+        if(ns_written < 0) {
+          pthread_rwlock_unlock(&ns->lock);
+          return -1;
+        }
         written += ns_written;
       }
     }
