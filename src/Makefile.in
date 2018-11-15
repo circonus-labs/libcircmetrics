@@ -83,7 +83,7 @@ $(LIBCIRCMETRICS):	$(LIBCIRCMETRICS_V)
 
 $(LIBCIRCMETRICS_V):	$(LIBCIRCMETRICS_OBJS)
 	@echo "- linking $@"
-	$(SHLD) $(SHLDFLAGS) $(CFLAGS) -o $@ $(LIBCIRCMETRICS_OBJS) -lm -lcircllhist -lck
+	$(SHLD) $(SHLDFLAGS) $(CFLAGS) -o $@ $(LIBCIRCMETRICS_OBJS) -lm $(LIBS)
 
 test/stats_test: test/stats_test.c $(LIBCIRCMETRICS)
 	$(Q)$(CC) -I. $(CPPFLAGS) $(CFLAGS) -L. $(LDFLAGS) -I. -o $@ test/stats_test.c -lcircmetrics $(LIBS)
