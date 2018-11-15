@@ -59,7 +59,7 @@ struct stats_ns_freshnode {
 };
 struct stats_ns_t {
   stats_recorder_t          *rec;
-  pthread_mutex_t            lock;
+  pthread_rwlock_t           lock;
   ck_hs_t                    map;
   struct stats_ns_freshnode *freshen;
 };
@@ -135,7 +135,7 @@ static bool hs_compare(const void *previous, const void *compare) {
 static void
 stats_ns_free(stats_ns_t *ns) {
   if(ns == NULL) return;
-  pthread_mutex_destroy(&ns->lock);
+  pthread_rwlock_destroy(&ns->lock);
   free(ns);
 }
 static stats_ns_t *
@@ -146,7 +146,7 @@ stats_ns_alloc(stats_recorder_t *rec) {
     free(ns);
     return NULL;
   }
-  pthread_mutex_init(&ns->lock, NULL);
+  pthread_rwlock_init(&ns->lock, NULL);
   ns->rec = rec;
   return ns;
 }
@@ -191,18 +191,20 @@ stats_ns_add_container(stats_ns_t *ns, const char *name) {
   // hashv won't change
   hashv = CK_HS_HASH(&ns->map, hs_hash, &nc);
   do {
+    pthread_rwlock_rdlock(&ns->lock);
     prev = ck_hs_get(&ns->map, hashv, &nc);
+    pthread_rwlock_unlock(&ns->lock);
     if(!prev) {
       toadd = calloc(1, sizeof(*toadd));
       toadd->key = strdup(name);
       toadd->len = strlen(toadd->key);
     
-      pthread_mutex_lock(&ns->lock);
+      pthread_rwlock_wrlock(&ns->lock);
       if(ck_hs_put(&ns->map, hashv, toadd)) {
         prev = toadd;
         toadd = NULL;
       }
-      pthread_mutex_unlock(&ns->lock);
+      pthread_rwlock_unlock(&ns->lock);
       if(toadd) {
         free((void *)toadd->key);
         free(toadd);
@@ -224,12 +226,12 @@ stats_register_ns(stats_recorder_t *rec, stats_ns_t *ns, const char *name) {
   if(!c) return NULL;
   if(c->ns) return c->ns;
   new_ns = stats_ns_alloc(rec);
-  pthread_mutex_lock(&ns->lock);
+  pthread_rwlock_wrlock(&ns->lock);
   if(c->ns == NULL) {
     c->ns = new_ns;
     new_ns = NULL;
   }
-  pthread_mutex_unlock(&ns->lock);
+  pthread_rwlock_unlock(&ns->lock);
   if(new_ns != NULL) stats_ns_free(new_ns);
   return c->ns;
 }
@@ -239,10 +241,10 @@ stats_ns_invoke(stats_ns_t *ns, stats_ns_update_func_t f, void *closure) {
   struct stats_ns_freshnode *node = calloc(1, sizeof(*node));
   node->f = f;
   node->closure = closure;
-  pthread_mutex_lock(&ns->lock);
+  pthread_rwlock_wrlock(&ns->lock);
   node->next = ns->freshen;
   ns->freshen = node;
-  pthread_mutex_unlock(&ns->lock);
+  pthread_rwlock_unlock(&ns->lock);
   return true;
 }
 
@@ -320,12 +322,12 @@ stats_register_fanout(stats_ns_t *ns, const char *name, stats_type_t type, int f
   if(!c) return NULL;
   if(!c->handle) {
     stats_handle_t *h = stats_handle_alloc(ns, type, fanout);
-    pthread_mutex_lock(&ns->lock);
+    pthread_rwlock_wrlock(&ns->lock);
     if(!c->handle) {
       c->handle = h;
       h = NULL;
     }
-    pthread_mutex_unlock(&ns->lock);
+    pthread_rwlock_unlock(&ns->lock);
     stats_handle_free(h);
   }
   if(c->handle->type == type) return c->handle;
@@ -525,6 +527,7 @@ stats_ns_clear(stats_ns_t *ns, stats_type_t type) {
   int cleared = 0;
   void *vc;
   ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  pthread_rwlock_rdlock(&ns->lock);
   while(ck_hs_next(&ns->map, &iterator, &vc)) {
     stats_container_t *c = vc;
     if(c->ns) cleared += stats_ns_clear(c->ns, type);
@@ -532,6 +535,7 @@ stats_ns_clear(stats_ns_t *ns, stats_type_t type) {
       if(stats_handle_clear(c->handle)) cleared++;
     }
   }
+  pthread_rwlock_unlock(&ns->lock);
   return cleared;
 }
 
@@ -725,6 +729,7 @@ stats_con_output_json(stats_ns_t *ns, stats_handle_t *h, bool hist_since_last,
   if(!simple) OUTF(cl, "{", 1, written);
   if(ns) {
     if(simple) OUTF(cl, "{", 1, written);
+    pthread_rwlock_rdlock(&ns->lock);
     while(ck_hs_next(&ns->map, &iterator, &vc)) {
       stats_container_t *c = vc;
       if(!simple || c->ns != NULL ||
@@ -741,6 +746,7 @@ stats_con_output_json(stats_ns_t *ns, stats_handle_t *h, bool hist_since_last,
         written += ns_written;
       }
     }
+    pthread_rwlock_unlock(&ns->lock);
     if(simple) OUTF(cl, "}", 1, written);
   }
   if(h && (!ns || !simple)) {
