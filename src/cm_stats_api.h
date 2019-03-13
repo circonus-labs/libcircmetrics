@@ -50,6 +50,38 @@ typedef enum stats_type_t {
   STATS_TYPE_HISTOGRAM_FAST
 } stats_type_t;
 
+#define STATS_UNITS_SECONDS "seconds"
+#define STATS_UNITS_BITS "bits"
+#define STATS_UNITS_BYTES "bytes"
+
+#define STATS_UNITS_PREFIX_DECI "deci"
+#define STATS_UNITS_PREFIX_CENTI "centi"
+#define STATS_UNITS_PREFIX_MILLI "milli"
+#define STATS_UNITS_PREFIX_MICRO "micro"
+#define STATS_UNITS_PREFIX_NANO "nano"
+#define STATS_UNITS_PREFIX_PICO "pico"
+#define STATS_UNITS_PREFIX_FEMTO "femto"
+#define STATS_UNITS_PREFIX_ATTO "atto"
+#define STATS_UNITS_PREFIX_ZEPTO "zepto"
+#define STATS_UNITS_PREFIX_YOCTO "yocto"
+#define STATS_UNITS_PREFIX_KILO "kilo"
+#define STATS_UNITS_PREFIX_MEGA "mega"
+#define STATS_UNITS_PREFIX_GIGA "giga"
+#define STATS_UNITS_PREFIX_TERA "tera"
+#define STATS_UNITS_PREFIX_PETA "peta"
+#define STATS_UNITS_PREFIX_EXA "exa"
+#define STATS_UNITS_PREFIX_ZETTA "zetta"
+#define STATS_UNITS_PREFIX_YOTTA "yotta"
+/* I hate standards IEC 80000-13:2008 */
+#define STATS_UNITS_PREFIX_KIBI "kibi"
+#define STATS_UNITS_PREFIX_MEBI "mebi"
+#define STATS_UNITS_PREFIX_GIBI "gibi"
+#define STATS_UNITS_PREFIX_TEBI "tebi"
+#define STATS_UNITS_PREFIX_PEBI "pebi"
+#define STATS_UNITS_PREFIX_EXBI "exbi"
+#define STATS_UNITS_PREFIX_ZEBI "zebi"
+#define STATS_UNITS_PREFIX_YOBI "yobi"
+
 /* Allocate a recorder object */
 stats_recorder_t *
   stats_recorder_alloc(void);
@@ -88,6 +120,10 @@ bool
 /* Add a tag pair to this handle */
 void
   stats_handle_add_tag(stats_handle_t *ns, const char *tag, const char *value);
+
+static inline void stats_handle_units(stats_handle_t *h, char *u) {
+  stats_handle_add_tag(h, "units", u);
+}
 
 /* Register a "metric" under the namespace,
  * creating if nothing exists under that key
