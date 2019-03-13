@@ -64,6 +64,10 @@ int
 stats_ns_t *
   stats_recorder_global_ns(stats_recorder_t *);
 
+/* Add a tag pair to this namespace */
+void
+  stats_ns_add_tag(stats_ns_t *ns, const char *tag, const char *value);
+
 /* Register a name space, optionally within an existing namespace.
  * If the key is taken by something other than a namespace, NULL is returned.
  */
@@ -80,6 +84,10 @@ typedef void (*stats_ns_update_func_t)(stats_ns_t *, void *closure);
  */
 bool
   stats_ns_invoke(stats_ns_t *, stats_ns_update_func_t, void *closure);
+
+/* Add a tag pair to this handle */
+void
+  stats_handle_add_tag(stats_handle_t *ns, const char *tag, const char *value);
 
 /* Register a "metric" under the namespace,
  * creating if nothing exists under that key
@@ -111,7 +119,7 @@ stats_type_t
  * it will cast the memory based on the stats_type_t of the handle.
  * It should be the address of the type such as `int32_t *` or `char **`
  */
-bool
+stats_handle_t *
   stats_observe(stats_handle_t *, stats_type_t, void *memory);
 
 #define stats_rob_i32(ns,name,vptr) stats_observe(stats_register(ns,name,STATS_TYPE_INT32), STATS_TYPE_INT32, vptr)
@@ -211,5 +219,10 @@ ssize_t
                              bool hist_since_last, bool simple,
                              ssize_t (*outf)(void *, const char *, size_t),
                              void *cl);
+
+ssize_t
+stats_recorder_output_json_tagged(stats_recorder_t *rec,
+                           bool hist_since_last,
+                           ssize_t (*outf)(void *, const char *, size_t), void *cl);
 
 #endif
