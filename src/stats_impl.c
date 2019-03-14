@@ -10,9 +10,11 @@
 #include <assert.h>
 #include <math.h>
 #include <inttypes.h>
+#include <sys/uio.h>
 
 #include "cm_stats_api.h"
 #include "stats_hash_f.h"
+#include "noit_metric_help.h"
 
 #define MAX_FANOUT 128
 #define DEFAULT_FANOUT 8
@@ -61,10 +63,12 @@ struct stats_ns_t {
   stats_recorder_t          *rec;
   pthread_rwlock_t           lock;
   ck_hs_t                    map;
+  ck_hs_t                    tags;
   struct stats_ns_freshnode *freshen;
 };
 struct stats_handle_t {
   stats_ns_t              *ns;
+  ck_hs_t                  tags;
   stats_type_t             type;
 
   stats_invocation_func_t  cb;
@@ -113,6 +117,14 @@ static void hs_free(void *p, size_t b, bool r) { (void)b; (void)r; free(p); retu
 static struct ck_malloc hs_allocator = {
   .malloc = hs_malloc, .free = hs_free
 };
+static unsigned long hs_taghash(const void *object, unsigned long seed)
+{
+  return __hash(object, strlen(object), seed);
+}
+static bool hs_tagcompare(const void *previous, const void *compare)
+{
+  return strcmp(previous, compare) == 0;
+}
 static unsigned long hs_hash(const void *object, unsigned long seed)
 {
   const stats_container_t *c = object;
@@ -134,7 +146,13 @@ static bool hs_compare(const void *previous, const void *compare) {
 
 static void
 stats_ns_free(stats_ns_t *ns) {
+  void *vc;
   if(ns == NULL) return;
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  while(ck_hs_next(&ns->tags, &iterator, &vc)) {
+    free(vc);
+  }
+  ck_hs_destroy(&ns->tags);
   pthread_rwlock_destroy(&ns->lock);
   free(ns);
 }
@@ -143,6 +161,11 @@ stats_ns_alloc(stats_recorder_t *rec) {
   stats_ns_t *ns = calloc(1, sizeof(*ns));
   if(ck_hs_init(&ns->map, CK_HS_MODE_OBJECT|CK_HS_MODE_SPMC,
                 hs_hash, hs_compare, &hs_allocator, 128, lrand48()) == 0) {
+    free(ns);
+    return NULL;
+  }
+  if(ck_hs_init(&ns->tags, CK_HS_MODE_OBJECT|CK_HS_MODE_SPMC,
+                hs_taghash, hs_tagcompare, &hs_allocator, 10, lrand48()) == 0) {
     free(ns);
     return NULL;
   }
@@ -236,6 +259,29 @@ stats_register_ns(stats_recorder_t *rec, stats_ns_t *ns, const char *name) {
   return c->ns;
 }
 
+static void
+stats_add_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
+  if(!tagcat || strlen(tagcat)==0) return; /* We do not support empty tagcat */
+  if(!tagval) tagval = "";
+  char tag[NOIT_TAG_MAX_PAIR_LEN+1];
+  snprintf(tag, sizeof(tag), "%s%c%s", tagcat, NOIT_TAG_DECODED_SEPARATOR, tagval);
+  unsigned long hashv = CK_HS_HASH(map, hs_taghash, tag);
+  void *prev = NULL;
+  if(ck_hs_set(map, hashv, strdup(tag), &prev)) {
+    if(prev) free(prev);
+  }
+}
+
+void
+stats_ns_add_tag(stats_ns_t *ns, const char *tagcat, const char *tagval) {
+  stats_add_tag(&ns->tags, tagcat, tagval);
+}
+
+void
+stats_handle_add_tag(stats_handle_t *h, const char *tagcat, const char *tagval) {
+  stats_add_tag(&h->tags, tagcat, tagval);
+}
+
 bool
 stats_ns_invoke(stats_ns_t *ns, stats_ns_update_func_t f, void *closure) {
   struct stats_ns_freshnode *node = calloc(1, sizeof(*node));
@@ -262,6 +308,11 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
   stats_handle_t *h = calloc(1, sizeof(*h));
   h->ns = ns;
   h->type = type;
+  if(ck_hs_init(&h->tags, CK_HS_MODE_OBJECT|CK_HS_MODE_SPMC,
+                hs_taghash, hs_tagcompare, &hs_allocator, 10, lrand48()) == 0) {
+    free(h);
+    return NULL;
+  }
   h->strref = &h->str.value;
   if(type == STATS_TYPE_HISTOGRAM ||
      type == STATS_TYPE_HISTOGRAM_FAST ||
@@ -302,10 +353,16 @@ stats_handle_alloc(stats_ns_t *ns, stats_type_t type, int fanout) {
 static void
 stats_handle_free(stats_handle_t *h) {
   int i;
+  void *vc;
   if(h == NULL) return;
   for(i=0;i<h->fanout;i++) {
     if(h->fan[i].cpu.hist) hist_free(h->fan[i].cpu.hist);
   }
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  while(ck_hs_next(&h->tags, &iterator, &vc)) {
+    free(vc);
+  }
+  ck_hs_destroy(&h->tags);
   free(h->fan);
   if(h->hist_aggr) hist_free(h->hist_aggr);
   free(h);
@@ -365,15 +422,15 @@ stats_handle_type(stats_handle_t *h) {
   return h->type;
 }
 
-bool
+stats_handle_t *
 stats_observe(stats_handle_t *h, stats_type_t type, void *memory) {
-  if(h == NULL) return false;
+  if(h == NULL) return NULL;
   // Can't observe a histogram as they aren't thread safe
-  if(h->type == STATS_TYPE_HISTOGRAM) return false;
-  if(h->type == STATS_TYPE_HISTOGRAM_FAST) return false;
-  if(h->type != type) return false;
+  if(h->type == STATS_TYPE_HISTOGRAM) return NULL;
+  if(h->type == STATS_TYPE_HISTOGRAM_FAST) return NULL;
+  if(h->type != type) return NULL;
   h->valueptr = memory;
-  return true;
+  return h;
 }
 
 bool
@@ -795,4 +852,126 @@ stats_recorder_output_json(stats_recorder_t *rec,
                            bool hist_since_last, bool simple,
                            ssize_t (*outf)(void *, const char *, size_t), void *cl) {
   return stats_con_output_json(rec->global, NULL, hist_since_last, simple, outf, cl);
+}
+
+
+static void
+merge_tags(ck_hs_t *tgt, ck_hs_t *src) {
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  void *vname;
+  while(ck_hs_next(src, &iterator, &vname)) {
+    char *name = vname;
+    unsigned long hashv = CK_HS_HASH(tgt, hs_taghash, name);
+    ck_hs_put(tgt, hashv, name);
+  }
+}
+static int
+charptrptrcmp(const void *a, const void *b) {
+  return strcmp(*(char **)a, *(char **)b);
+}
+static size_t personal_strlcat(char *dst, const char *src, size_t size) {
+  int dl = strlen(dst);
+  int sz = size-dl-1;
+  if(sz >= 0) {
+    strncat(dst, src, sz);
+    dst[dl+sz] = '\0';
+  }
+  return dl+strlen(src);
+}
+static void
+make_metric_name(char *out, size_t len, const char *name, ck_hs_t *stags) {
+  int i = 0;
+  void *vname;
+  int ntags = ck_hs_count(stags);
+  char *tags[MAX_TAGS];
+  if(ntags > MAX_TAGS) ntags = MAX_TAGS;
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  while(i < ntags && ck_hs_next(stags, &iterator, &vname)) {
+    tags[i++] = vname;
+  }
+  assert(ntags == i);
+  qsort(tags, ntags, sizeof(char *), charptrptrcmp);
+  snprintf(out, len, "%s|ST[", name);
+  for(i=0;i<ntags;i++) {
+    char tag[NOIT_TAG_MAX_PAIR_LEN+1];
+    noit_metric_tagset_encode_tag(tag, sizeof(tag), tags[i], strlen(tags[i]));
+    if(i>0) personal_strlcat(out,",",len);
+    personal_strlcat(out,tag,len);
+  }
+  personal_strlcat(out,"]",len);
+}
+
+static ssize_t
+stats_con_output_json_tagged(stats_ns_t *ns, stats_handle_t *h, const char *name, bool hist_since_last,
+                      bool top_level, bool *started, ck_hs_t *itags,
+                      ssize_t (*outf)(void *, const char *, size_t), void *cl) {
+  void *vc;
+  ssize_t written = 0, ns_written = 0;
+  ck_hs_t tmpmap;
+  if(ck_hs_init(&tmpmap, CK_HS_MODE_OBJECT|CK_HS_MODE_SPMC,
+                hs_taghash, hs_tagcompare, &hs_allocator, 10, lrand48()) == 0) {
+    return 0;
+  }
+  if(itags) merge_tags(&tmpmap, itags);
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  stats_ns_update(ns);
+  if(top_level) OUTF(cl, "{", 1, written);
+  if(ns) {
+    merge_tags(&tmpmap, &ns->tags);
+    pthread_rwlock_rdlock(&ns->lock);
+    while(ck_hs_next(&ns->map, &iterator, &vc)) {
+      stats_container_t *c = vc;
+      ns_written = stats_con_output_json_tagged(c->ns, c->handle, c->key, hist_since_last, false, started, &tmpmap, outf, cl);
+      if(ns_written < 0) {
+        pthread_rwlock_unlock(&ns->lock);
+        return -1;
+      }
+      written += ns_written;
+    }
+    pthread_rwlock_unlock(&ns->lock);
+  }
+  if(h) {
+    merge_tags(&tmpmap, &h->tags);
+    if(*started) {
+      OUTF(cl, ",", 1, written);
+    }
+    *started = true;
+    OUTBLOCK(cl, "\"", 1, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
+    char metric_name[MAX_METRIC_TAGGED_NAME];
+    make_metric_name(metric_name, sizeof(metric_name), name, &tmpmap);
+    ns_written = yajl_string_encode(outf, cl, metric_name, strlen(metric_name));
+    if(ns_written < 0) {
+      pthread_rwlock_unlock(&ns->lock);
+      return -1;
+    }
+    written += ns_written;
+    OUTBLOCK(cl, "\":{", 3, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
+    OUTF(cl, "\"_type\":\"", 9, written);
+    switch(h->type) {
+      case STATS_TYPE_STRING: OUTF(cl, "s", 1, written); break;
+      case STATS_TYPE_INT32: OUTF(cl, "i", 1, written); break;
+      case STATS_TYPE_UINT32: OUTF(cl, "I", 1, written); break;
+      case STATS_TYPE_INT64: OUTF(cl, "l", 1, written); break;
+      case STATS_TYPE_COUNTER:
+      case STATS_TYPE_UINT64: OUTF(cl, "L", 1, written); break;
+      case STATS_TYPE_DOUBLE:
+      case STATS_TYPE_HISTOGRAM_FAST:
+      case STATS_TYPE_HISTOGRAM: OUTF(cl, "h", 1, written); break;
+    }
+    OUTF(cl, "\",\"_value\":", 11, written);
+    ssize_t rv = stats_val_output_json(h, hist_since_last, outf, cl);
+    if(rv < 0) return -1;
+    written += rv;
+    OUTF(cl, "}", 1, written);
+  }
+  if(top_level) OUTF(cl, "}", 1, written);
+  ck_hs_destroy(&tmpmap);
+  return written;
+}
+ssize_t
+stats_recorder_output_json_tagged(stats_recorder_t *rec,
+                           bool hist_since_last,
+                           ssize_t (*outf)(void *, const char *, size_t), void *cl) {
+  bool started = false;
+  return stats_con_output_json_tagged(rec->global, NULL, NULL, hist_since_last, true, &started, NULL, outf, cl);
 }

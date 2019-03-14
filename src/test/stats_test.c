@@ -62,11 +62,13 @@ int main() {
   rec = stats_recorder_alloc();
   global = stats_recorder_global_ns(rec);
   ns1 = stats_register_ns(rec, global, "ns1");
+  stats_ns_add_tag(ns1, "app", "ns1");
   Tassert(ns1 != NULL);
   Tassert(ns1 == stats_register_ns(rec, NULL, "ns1"));
   register_globals(ns1);
 
-  hist = stats_register(global, "latency", STATS_TYPE_HISTOGRAM_FAST);
+  hist = stats_register(ns1, "latency", STATS_TYPE_HISTOGRAM_FAST);
+  stats_handle_add_tag(hist, "units", "seconds");
 
   int fd = 1;
   stats_recorder_output_json(rec, true, simple, writefd_ref, &fd);
@@ -82,8 +84,10 @@ int main() {
   while(cnt-- > 0) {
     printf("\n\n");
     if(cnt == 0) simple = true;
-    stats_recorder_output_json(rec, since_last, simple, writefd_ref, &fd);
+    //stats_recorder_output_json(rec, since_last, simple, writefd_ref, &fd);
+    printf("\n\n");
     since_last = !since_last;
+    stats_recorder_output_json_tagged(rec, false, writefd_ref, &fd);
     sleep(1);
   }
 
