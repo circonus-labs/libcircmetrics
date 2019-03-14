@@ -936,7 +936,7 @@ stats_con_output_json_tagged(stats_ns_t *ns, stats_handle_t *h, const char *name
       OUTF(cl, ",", 1, written);
     }
     *started = true;
-    OUTBLOCK(cl, "\"", 1, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
+    OUTF(cl, "\"", 1, written);
     char metric_name[MAX_METRIC_TAGGED_NAME];
     make_metric_name(metric_name, sizeof(metric_name), name, &tmpmap);
     ns_written = yajl_string_encode(outf, cl, metric_name, strlen(metric_name));
@@ -945,7 +945,7 @@ stats_con_output_json_tagged(stats_ns_t *ns, stats_handle_t *h, const char *name
       return -1;
     }
     written += ns_written;
-    OUTBLOCK(cl, "\":{", 3, written, { pthread_rwlock_unlock(&ns->lock); return -1; });
+    OUTF(cl, "\":{", 3, written);
     OUTF(cl, "\"_type\":\"", 9, written);
     switch(h->type) {
       case STATS_TYPE_STRING: OUTF(cl, "s", 1, written); break;
