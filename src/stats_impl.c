@@ -261,10 +261,10 @@ stats_register_ns(stats_recorder_t *rec, stats_ns_t *ns, const char *name) {
 
 static void
 stats_add_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
-  if(!tagcat) tagcat = "";
+  if(!tagcat || strlen(tagcat)==0) return; /* We do not support empty tagcat */
   if(!tagval) tagval = "";
   char tag[NOIT_TAG_MAX_PAIR_LEN+1];
-  snprintf(tag, sizeof(tag), "%s%c%s", tagcat, 0x1f, tagval);
+  snprintf(tag, sizeof(tag), "%s%c%s", tagcat, NOIT_TAG_DECODED_SEPARATOR, tagval);
   unsigned long hashv = CK_HS_HASH(map, hs_taghash, tag);
   void *prev = NULL;
   if(ck_hs_set(map, hashv, strdup(tag), &prev)) {

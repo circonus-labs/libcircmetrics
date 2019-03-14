@@ -33,6 +33,9 @@
  */
 
 /* This is lifted from reconnoiter */
+/* This is intentionally unprotected via #ifndef bracketing.
+ * this is an internal header only designed to be used in one place.
+ */
 
 #define mtev_boolean bool
 #define mtev_false false
@@ -41,6 +44,7 @@
 #define NOIT_TAG_MAX_CAT_LEN  254
 #define MAX_TAGS 256
 #define MAX_METRIC_TAGGED_NAME 4096
+#define NOIT_TAG_DECODED_SEPARATOR 0x1f
 
 static const char __b64[] = {
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
