@@ -234,8 +234,14 @@ ssize_t
                              void *cl);
 
 ssize_t
-stats_recorder_output_json_tagged(stats_recorder_t *rec,
-                           bool hist_since_last,
-                           ssize_t (*outf)(void *, const char *, size_t), void *cl);
+  stats_recorder_output_json_tagged(stats_recorder_t *rec,
+                                    bool hist_since_last,
+                                    ssize_t (*outf)(void *, const char *, size_t), void *cl);
+
+typedef bool (*stats_capture_f)(void *cl, const char *name, stats_type_t type, void *addr);
+
+int
+  stats_recorder_capture(stats_recorder_t *rec, bool hist_since_last,
+                         stats_capture_f cb, void *cl);
 
 #endif

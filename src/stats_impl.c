@@ -691,7 +691,71 @@ yajl_string_encode(ssize_t (*outf)(void *, const char *, size_t),
   OUTF(cl, (const char *) (str + beg), end - beg, written);
   return written;
 }
+bool
+stats_handle_capture(const char *metric_name, stats_handle_t *h, bool hist_since_last,
+                     stats_capture_f cb, void *cl) {
+  bool took_action = false;
+  char string_copy[4096];
+  char *string = NULL;
+  if(h->cb) {
+    h->cb(h, &h->valueptr, h->cb_closure);
+  }
 
+  switch(h->type) {
+  case STATS_TYPE_STRING:
+    pthread_mutex_lock(&h->mutex);
+    if(h->valueptr) {
+      int len = strlen(*(char **)h->valueptr);
+      if(len >= sizeof(string_copy)) len = sizeof(string_copy)-1;
+      memcpy(string_copy, *(char **)h->valueptr, len);
+      string_copy[len] = '\0';
+      string = string_copy;
+    }
+    pthread_mutex_unlock(&h->mutex);
+    took_action = cb(cl, metric_name, h->type, string);
+    break;
+  case STATS_TYPE_INT32:
+  case STATS_TYPE_UINT32:
+  case STATS_TYPE_INT64:
+  case STATS_TYPE_UINT64:
+  case STATS_TYPE_DOUBLE:
+    took_action = cb(cl, metric_name, h->type, h->valueptr);
+    break;
+  case STATS_TYPE_COUNTER:
+  {
+    int i;
+    uint64_t sum = 0;
+    for(i=0;i<h->fanout;i++)
+      sum += ck_pr_load_64(&h->fan[i].cpu.incr);
+    took_action = cb(cl, metric_name, STATS_TYPE_UINT64, &sum);
+    break;
+  }
+  case STATS_TYPE_HISTOGRAM_FAST:
+  case STATS_TYPE_HISTOGRAM:
+    {
+      int i;
+      bool needs_comma = false;
+      histogram_t *copy = hist_alloc_nbins(h->last_size * h->fanout); // upper bound
+      for(i=0;i<h->fanout;i++) {
+        const histogram_t * const * hptr = (const histogram_t * const *)&h->fan[i].cpu.hist;
+        pthread_mutex_lock(&h->fan[i].cpu.mutex);
+        hist_accumulate(copy, hptr, 1);
+        if(hist_since_last) {
+          hist_clear(h->fan[i].cpu.hist);
+        }
+        pthread_mutex_unlock(&h->fan[i].cpu.mutex);
+      }
+      if(hist_since_last) hist_accumulate(h->hist_aggr, (const histogram_t *const *)&copy, 1);
+      else hist_accumulate(copy, (const histogram_t *const *)&h->hist_aggr, 1);
+      h->last_size = hist_bucket_count(copy);
+    bail:
+      took_action = cb(cl, metric_name, STATS_TYPE_HISTOGRAM, copy);
+      hist_free(copy);
+    }
+    break;
+  }
+  return took_action;
+}
 static ssize_t
 stats_val_output_json(stats_handle_t *h, bool hist_since_last,
                       ssize_t (*outf)(void *, const char *, size_t), void *cl) {
@@ -988,4 +1052,44 @@ stats_recorder_output_json_tagged(stats_recorder_t *rec,
                            ssize_t (*outf)(void *, const char *, size_t), void *cl) {
   bool started = false;
   return stats_con_output_json_tagged(rec->global, NULL, NULL, hist_since_last, true, &started, NULL, outf, cl);
+}
+
+static int
+stats_con_capture(stats_ns_t *ns, stats_handle_t *h, const char *name, bool hist_since_last,
+                  ck_hs_t *itags, stats_capture_f cb, void *cl) {
+  int cnt = 0;
+  void *vc;
+  ck_hs_t tmpmap;
+  if(ck_hs_init(&tmpmap, CK_HS_MODE_OBJECT|CK_HS_MODE_SPMC,
+                hs_taghash, hs_tagcompare, &hs_allocator, 10, lrand48()) == 0) {
+    return 0;
+  }
+  if(itags) merge_tags(&tmpmap, itags);
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  stats_ns_update(ns);
+  if(ns) {
+    merge_tags(&tmpmap, &ns->tags);
+    pthread_rwlock_rdlock(&ns->lock);
+    while(ck_hs_next(&ns->map, &iterator, &vc)) {
+      stats_container_t *c = vc;
+      cnt += stats_con_capture(c->ns, c->handle, c->key, hist_since_last, &tmpmap, cb, cl);
+    }
+    pthread_rwlock_unlock(&ns->lock);
+  }
+  if(h && !h->tagged_suppress) {
+    merge_tags(&tmpmap, &h->tags);
+    char metric_name[MAX_METRIC_TAGGED_NAME];
+    make_metric_name(metric_name, sizeof(metric_name), h->tagged_name ? h->tagged_name : name, &tmpmap);
+    if(stats_handle_capture(metric_name, h, hist_since_last, cb, cl)) {
+      cnt++;
+    }
+  }
+  ck_hs_destroy(&tmpmap);
+  return cnt;
+}
+
+int
+stats_recorder_capture(stats_recorder_t *rec, bool hist_since_last,
+                       stats_capture_f cb, void *cl) {
+  return stats_con_capture(rec->global, NULL, NULL, hist_since_last, NULL, cb, cl);
 }
