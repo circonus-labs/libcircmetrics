@@ -126,7 +126,7 @@ clean:
 	rm -f $(LUA_FFI)
 	rm -f cm_units.h
 
-Makefile.dep:
+Makefile.dep:	$(HEADERS)
 	$(CC) -I. $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) *.c > Makefile.dep
 
 include Makefile.dep
