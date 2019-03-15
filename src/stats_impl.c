@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <sys/uio.h>
 
+#include "cm_units.h"
 #include "cm_stats_api.h"
 #include "stats_hash_f.h"
 #include "noit_metric_help.h"
@@ -69,6 +70,8 @@ struct stats_ns_t {
 struct stats_handle_t {
   stats_ns_t              *ns;
   ck_hs_t                  tags;
+  bool                     tagged_suppress;
+  char                    *tagged_name;
   stats_type_t             type;
 
   stats_invocation_func_t  cb;
@@ -275,6 +278,18 @@ stats_add_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
 void
 stats_ns_add_tag(stats_ns_t *ns, const char *tagcat, const char *tagval) {
   stats_add_tag(&ns->tags, tagcat, tagval);
+}
+
+void
+stats_handle_tagged_name(stats_handle_t *h, const char *name) {
+  if(h->tagged_name) free(h->tagged_name);
+  h->tagged_name = name ? strdup(name) : NULL;
+  if(h->tagged_name == NULL) h->tagged_suppress = true;
+}
+
+void
+stats_handle_tagged_suppress(stats_handle_t *h) {
+  h->tagged_suppress = true;
 }
 
 void
@@ -930,7 +945,7 @@ stats_con_output_json_tagged(stats_ns_t *ns, stats_handle_t *h, const char *name
     }
     pthread_rwlock_unlock(&ns->lock);
   }
-  if(h) {
+  if(h && !h->tagged_suppress) {
     merge_tags(&tmpmap, &h->tags);
     if(*started) {
       OUTF(cl, ",", 1, written);
@@ -938,7 +953,7 @@ stats_con_output_json_tagged(stats_ns_t *ns, stats_handle_t *h, const char *name
     *started = true;
     OUTF(cl, "\"", 1, written);
     char metric_name[MAX_METRIC_TAGGED_NAME];
-    make_metric_name(metric_name, sizeof(metric_name), name, &tmpmap);
+    make_metric_name(metric_name, sizeof(metric_name), h->tagged_name ? h->tagged_name : name, &tmpmap);
     ns_written = yajl_string_encode(outf, cl, metric_name, strlen(metric_name));
     if(ns_written < 0) {
       return -1;

@@ -74,9 +74,12 @@ TARGETS=$(LIBCIRCMETRICS) $(LUA_FFI) test/stats_test
 
 all:	$(TARGETS)
 
-HEADERS=circmetrics.h cm_stats_api.h cm_publish_api.h
+HEADERS=circmetrics.h cm_stats_api.h cm_publish_api.h cm_units.h
 
 LIBCIRCMETRICS_OBJS=stats_impl.lo
+
+cm_units.h:	../units.md
+	./codegen.pl > $@
 
 $(LIBCIRCMETRICS):	$(LIBCIRCMETRICS_V)
 	ln -sf $(LIBCIRCMETRICS_V) $(LIBCIRCMETRICS)
@@ -87,6 +90,9 @@ $(LIBCIRCMETRICS_V):	$(LIBCIRCMETRICS_OBJS)
 
 test/stats_test: test/stats_test.c $(LIBCIRCMETRICS)
 	$(Q)$(CC) -I. $(CPPFLAGS) $(CFLAGS) -L. $(LDFLAGS) -I. -o $@ test/stats_test.c -lcircmetrics $(LIBS)
+
+stats_impl.o:	cm_units.h
+stats_impl.lo:	cm_units.h
 
 .c.lo:
 		echo "- compiling $<" ; \
@@ -118,6 +124,7 @@ clean:
 	rm -f histogram_test
 	rm -f histogram_perl
 	rm -f $(LUA_FFI)
+	rm -f cm_units.h
 
 Makefile.dep:
 	$(CC) -I. $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) *.c > Makefile.dep

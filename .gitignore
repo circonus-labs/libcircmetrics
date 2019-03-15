@@ -13,3 +13,4 @@ config.status
 autom4te.cache/
 src/circmetrics_config.h
 src/test/*_test
+src/cm_units.h
