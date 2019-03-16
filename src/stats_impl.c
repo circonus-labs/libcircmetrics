@@ -277,7 +277,9 @@ stats_add_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
 
 void
 stats_ns_add_tag(stats_ns_t *ns, const char *tagcat, const char *tagval) {
+  pthread_rwlock_wrlock(&ns->lock);
   stats_add_tag(&ns->tags, tagcat, tagval);
+  pthread_rwlock_unlock(&ns->lock);
 }
 
 void
@@ -294,7 +296,9 @@ stats_handle_tagged_suppress(stats_handle_t *h) {
 
 void
 stats_handle_add_tag(stats_handle_t *h, const char *tagcat, const char *tagval) {
+  pthread_mutex_lock(&h->mutex);
   stats_add_tag(&h->tags, tagcat, tagval);
+  pthread_mutex_unlock(&h->mutex);
 }
 
 bool
