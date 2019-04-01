@@ -708,7 +708,7 @@ stats_handle_capture(const char *metric_name, stats_handle_t *h, bool hist_since
   switch(h->type) {
   case STATS_TYPE_STRING:
     pthread_mutex_lock(&h->mutex);
-    if(h->valueptr) {
+    if(h->valueptr && *(char **)h->valueptr) {
       int len = strlen(*(char **)h->valueptr);
       if(len >= sizeof(string_copy)) len = sizeof(string_copy)-1;
       memcpy(string_copy, *(char **)h->valueptr, len);
@@ -964,13 +964,13 @@ static size_t personal_strlcat(char *dst, const char *src, size_t size) {
 static void
 make_metric_name(char *out, size_t len, const char *name, ck_hs_t *stags) {
   int i = 0;
-  void *vname;
+  void *vname = NULL;
   int ntags = ck_hs_count(stags);
   char *tags[MAX_TAGS];
   if(ntags > MAX_TAGS) ntags = MAX_TAGS;
   ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
   while(i < ntags && ck_hs_next(stags, &iterator, &vname)) {
-    tags[i++] = vname;
+    if(vname) tags[i++] = vname;
   }
   assert(ntags == i);
   qsort(tags, ntags, sizeof(char *), charptrptrcmp);
