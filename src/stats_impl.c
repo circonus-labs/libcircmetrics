@@ -977,7 +977,7 @@ make_metric_name(char *out, size_t len, const char *name, ck_hs_t *stags) {
   snprintf(out, len, "%s|ST[", name);
   for(i=0;i<ntags;i++) {
     char tag[NOIT_TAG_MAX_PAIR_LEN+1];
-    noit_metric_tagset_encode_tag(tag, sizeof(tag), tags[i], strlen(tags[i]));
+    lcm_noit_metric_tagset_encode_tag(tag, sizeof(tag), tags[i], strlen(tags[i]));
     if(i>0) personal_strlcat(out,",",len);
     personal_strlcat(out,tag,len);
   }

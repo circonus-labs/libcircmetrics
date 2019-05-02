@@ -147,7 +147,7 @@ personal_mtev_b64_encode(const unsigned char *src, size_t src_len,
   print "\n";
   }'
 */
-static uint8_t vtagmap_key[256] = {
+static uint8_t lcm_vtagmap_key[256] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
   0,1,1,1,1,1,1,1,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,
@@ -159,7 +159,7 @@ static uint8_t vtagmap_key[256] = {
 };
 
 /* Same as above, but allow for ':' and '=' */
-static uint8_t vtagmap_value[256] = {
+static uint8_t lcm_vtagmap_value[256] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
   0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,1,
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,
@@ -179,7 +179,7 @@ static uint8_t vtagmap_value[256] = {
   print "\n";
   }'
 */
-static uint8_t base64_vtagmap[256] = {
+static uint8_t lcm_base64_vtagmap[256] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
   0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,0,
   0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,
@@ -192,25 +192,25 @@ static uint8_t base64_vtagmap[256] = {
 
 
 static inline mtev_boolean
-noit_metric_tagset_is_taggable_key_char(char c) {
+lcm_noit_metric_tagset_is_taggable_key_char(char c) {
   uint8_t cu = c;
-  return vtagmap_key[cu] == 1;
+  return lcm_vtagmap_key[cu] == 1;
 }
 
 static inline mtev_boolean
-noit_metric_tagset_is_taggable_value_char(char c) {
+lcm_noit_metric_tagset_is_taggable_value_char(char c) {
   uint8_t cu = c;
-  return vtagmap_value[cu] == 1;
+  return lcm_vtagmap_value[cu] == 1;
 }
 
-mtev_boolean
-noit_metric_tagset_is_taggable_b64_char(char c) {
+static mtev_boolean
+lcm_noit_metric_tagset_is_taggable_b64_char(char c) {
   uint8_t cu = c;
-  return base64_vtagmap[cu] == 1;
+  return lcm_base64_vtagmap[cu] == 1;
 }
 
-mtev_boolean
-noit_metric_tagset_is_taggable_part(const char *key, size_t len, mtev_boolean (*tf)(char))
+static mtev_boolean
+lcm_noit_metric_tagset_is_taggable_part(const char *key, size_t len, mtev_boolean (*tf)(char))
 {
   /* there are 2 tag formats supported, plain old tags that obey the vtagmap
      charset, and base64 encoded tags that obey the:
@@ -224,7 +224,7 @@ noit_metric_tagset_is_taggable_part(const char *key, size_t len, mtev_boolean (*
       if (key[len - 1] == '"') {
         size_t sum_good = 3;
         for (size_t i = 2; i < len - 1; i++) {
-          sum_good += (size_t)noit_metric_tagset_is_taggable_b64_char(key[i]);
+          sum_good += (size_t)lcm_noit_metric_tagset_is_taggable_b64_char(key[i]);
         }
         return len == sum_good;
       }
@@ -238,23 +238,23 @@ noit_metric_tagset_is_taggable_part(const char *key, size_t len, mtev_boolean (*
   return len == sum_good;
 }
 
-mtev_boolean
-noit_metric_tagset_is_taggable_key(const char *val, size_t len)
+static mtev_boolean
+lcm_noit_metric_tagset_is_taggable_key(const char *val, size_t len)
 {
-  return noit_metric_tagset_is_taggable_part(val, len, noit_metric_tagset_is_taggable_key_char);
+  return lcm_noit_metric_tagset_is_taggable_part(val, len, lcm_noit_metric_tagset_is_taggable_key_char);
 }
 
-mtev_boolean
-noit_metric_tagset_is_taggable_value(const char *val, size_t len)
+static mtev_boolean
+lcm_noit_metric_tagset_is_taggable_value(const char *val, size_t len)
 {
   /* accept blank string, blank base64 encoded string, and acceptable taggable_value_chars as values */
   return len == 0 ||
     (len == 3 && memcmp("b\"\"", val, 3) == 0) ||
-    noit_metric_tagset_is_taggable_part(val, len, noit_metric_tagset_is_taggable_value_char);
+    lcm_noit_metric_tagset_is_taggable_part(val, len, lcm_noit_metric_tagset_is_taggable_value_char);
 }
 
-size_t
-noit_metric_tagset_encode_tag(char *encoded_tag, size_t max_len, const char *decoded_tag, size_t decoded_len)
+static inline size_t
+lcm_noit_metric_tagset_encode_tag(char *encoded_tag, size_t max_len, const char *decoded_tag, size_t decoded_len)
 {
   char scratch[NOIT_TAG_MAX_PAIR_LEN+1];
   if(max_len > sizeof(scratch)) return -1;
@@ -269,13 +269,13 @@ noit_metric_tagset_encode_tag(char *encoded_tag, size_t max_len, const char *dec
   }
   int first_part_needs_b64 = 0;
   for(i=0;i<sepcnt;i++)
-    first_part_needs_b64 += !noit_metric_tagset_is_taggable_key_char(decoded_tag[i]);
+    first_part_needs_b64 += !lcm_noit_metric_tagset_is_taggable_key_char(decoded_tag[i]);
   int first_part_len = sepcnt;
   if(first_part_needs_b64) first_part_len = personal_mtev_b64_encode_len(first_part_len) + 3;
  
   int second_part_needs_b64 = 0; 
   for(i=sepcnt+1;i<decoded_len;i++)
-	second_part_needs_b64 += !noit_metric_tagset_is_taggable_value_char(decoded_tag[i]);
+	second_part_needs_b64 += !lcm_noit_metric_tagset_is_taggable_value_char(decoded_tag[i]);
   int second_part_len = decoded_len - sepcnt - 1;
   if(second_part_needs_b64) second_part_len = personal_mtev_b64_encode_len(second_part_len) + 3;
 
