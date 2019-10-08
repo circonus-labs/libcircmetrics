@@ -275,10 +275,33 @@ stats_add_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
   }
 }
 
+static void
+stats_replace_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
+  char *name;
+  void *vc;
+  ck_hs_iterator_t iterator = CK_HS_ITERATOR_INITIALIZER;
+  while(ck_hs_next(map, &iterator, &vc)) {
+    name = vc;
+    if(0 == strncmp(name, tagcat, strlen(tagcat)) &&
+       name[strlen(tagcat)] == NOIT_TAG_DECODED_SEPARATOR) {
+      unsigned long hashv = CK_HS_HASH(map, hs_taghash, name);
+      ck_hs_remove(map, hashv, name);
+    }
+  }
+  stats_add_tag(map, tagcat, tagval);
+}
+
 void
 stats_ns_add_tag(stats_ns_t *ns, const char *tagcat, const char *tagval) {
   pthread_rwlock_wrlock(&ns->lock);
   stats_add_tag(&ns->tags, tagcat, tagval);
+  pthread_rwlock_unlock(&ns->lock);
+}
+
+void
+stats_ns_replace_tag(stats_ns_t *ns, const char *tagcat, const char *tagval) {
+  pthread_rwlock_wrlock(&ns->lock);
+  stats_replace_tag(&ns->tags, tagcat, tagval);
   pthread_rwlock_unlock(&ns->lock);
 }
 

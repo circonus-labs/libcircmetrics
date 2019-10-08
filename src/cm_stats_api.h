@@ -69,6 +69,10 @@ stats_ns_t *
 void
   stats_ns_add_tag(stats_ns_t *ns, const char *tag, const char *value);
 
+/* Replace a tag pairs with a match tag with a single tag pair */
+void
+  stats_ns_replace_tag(stats_ns_t *ns, const char *tag, const char *value);
+
 /* Register a name space, optionally within an existing namespace.
  * If the key is taken by something other than a namespace, NULL is returned.
  */
