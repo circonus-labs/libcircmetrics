@@ -11,8 +11,8 @@ numeric (various native C integer types and doubles), and log-linear histograms
 via the [circllhist](https://github.com/circonus-labs/libcircllhist)
 implementation.
 
-Metric names are exposed both hierarchically as is common in legacy systems
-(e.g. `acme.users.login.count`) and "Metrics 2.0"-style tagged metrics (.e.g.,
+Metric names are exposed both hierarchically, as is common in legacy systems
+(e.g. `acme.users.login.count`), and "Metrics 2.0"-style tagged metrics (.e.g.,
 `count{app=acme,subsystem=users,operation=login}`).  Tags are exposed in
 Circonus' preferred format:
 `count|ST[app:acme,operation:login,subsystem:users]`.
@@ -50,14 +50,15 @@ apins = stats_register_ns(rec, app, "api");
 stats_ns_add_tag(apins, "subsystem", "api");
 ```
 
-This has created a heirarchy of `mycoolapp.api`. The `stats_ns_add_tag` call
+This has created a hierarchy of `mycoolapp.api`. The `stats_ns_add_tag` call
 will attach a tag `app:mycoolapp` to that branch (and thus all children) of the
 metrics tree. Likewise, any metrics registered under the `api` namespace will
 have both the `app:mycoolapp` tag as well as the `subsystem:api` tag.
 
-Now we will put three metrics under this: 1) a version for our application
-under the `mycoolapp` namespace, 2) a count of API calls under the `api`
-namespace, and 3) a histogram of latencies.
+Now we will put three metrics under this:
+ 1. A version for our application under the `mycoolapp` namespace.
+ 1. A count of API calls under the `api` namespace.
+ 1. A histogram of latencies.
 
 Additionally we will inform the library what the tagged variant of each of
 these metrics is.
@@ -68,8 +69,8 @@ stats_handle_t *version_handle = stats_register(appns, "version", STATS_TYPE_STR
 stats_observe(version_handle, STATS_TYPE_STRING, &version_string);
 ```
 This will create a metric `mycoolapp.version` that observes the
-`version_string` symbol and will report it's value (even if it changes).  The
-fully qualified, tagged variant of this metric is `version|ST[app:mycoolapp]`.
+`version_string` symbol and reports its value (even if it changes).  The fully
+qualified, tagged variant of this metric is `version|ST[app:mycoolapp]`.
 
 ```c
 stats_handle_t *api_req_counter;
