@@ -38,7 +38,7 @@ stats_recorder_t *rec;
 rec = stats_recorder_alloc(); 
 ```
 
-Next we create a namespace.  A namespace is part of the metric's heirarchical
+Next we create a namespace.  A namespace is part of the metric's hierarchical
 name.
 
 ```c
