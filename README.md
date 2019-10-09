@@ -115,10 +115,15 @@ to produce a JSON document with all the data in it.
 
 The "simple" format is `{ "key": value }` in JSON.  However, due to JSON's
 horribly poor specification around numbers, it is often useful to know what
-type the measurement is, so the "not simple" format is: `{ "key": { "_type":
-"T", "_value": "V" }}` where T is `s` for strings, `i`, `I`, `l`, `L`, or `n`
-for `int32_t`, `uint32_t`, `int64_t`, `uint64_t`, or `double`, respectively, or
-`H` for histograms.
+type the measurement is, so the "not simple" format is:
+
+```json
+{ "key": { "_type": "<type>", "_value": "<value>" }}
+```
+
+where `<type>` is `s` for strings, `i`, `I`, `l`, `L`, or `n` for `int32_t`,
+`uint32_t`, `int64_t`, `uint64_t`, or `double`, respectively, or `H` for
+histograms.
 
 ```c
 static ssize_t write_to_fd(void *closure, const char *buf, size_t len) {
