@@ -5,7 +5,7 @@
 1. meters (m) length
 1. grams (g) mass
 1. seconds (s) time
-1. amperes (A) electrct current
+1. amperes (A) electric current
 1. kelvin (K) thermodynamic temperature
 1. moles (mol) amount of substance
 1. candela (cd) luminous intensity
