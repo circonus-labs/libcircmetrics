@@ -19,6 +19,8 @@ void cbtest(stats_handle_t *h, void *vptr, void *c) {
   **(int64_t **)vptr = incr;
 }
 
+stats_handle_t *h_dbl;
+
 void register_globals(stats_ns_t *ns) {
   stats_handle_t *h;
   h = stats_register(ns, "global_42", STATS_TYPE_INT64);
@@ -28,6 +30,8 @@ void register_globals(stats_ns_t *ns) {
 
   h = stats_register(ns, "foo", STATS_TYPE_STRING);
   stats_observe(h, STATS_TYPE_STRING, &foo);
+
+  h_dbl = stats_register(ns, "dbl", STATS_TYPE_DOUBLE);
 
   h = stats_register(ns, "incr", STATS_TYPE_INT64);
   stats_invoke(h, cbtest, NULL);
@@ -84,6 +88,8 @@ int main() {
   while(cnt-- > 0) {
     printf("\n\n");
     if(cnt == 0) simple = true;
+    double dbl = (double)lrand48()/(double)INT32_MAX;
+    stats_set(h_dbl, STATS_TYPE_DOUBLE, &dbl);
     //stats_recorder_output_json(rec, since_last, simple, writefd_ref, &fd);
     printf("\n\n");
     since_last = !since_last;
