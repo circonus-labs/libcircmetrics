@@ -454,6 +454,7 @@ stats_handle_clear(stats_handle_t *h) {
       h->fan[i].cpu.incr = 0;
     return true;
   default:
+    h->valueptr = NULL;
     break;
   }
   return false;
