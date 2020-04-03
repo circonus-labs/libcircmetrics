@@ -285,8 +285,7 @@ stats_replace_tag(ck_hs_t *map, const char *tagcat, const char *tagval) {
     if(0 == strncmp(name, tagcat, strlen(tagcat)) &&
        name[strlen(tagcat)] == NOIT_TAG_DECODED_SEPARATOR) {
       unsigned long hashv = CK_HS_HASH(map, hs_taghash, name);
-      void *removed = ck_hs_remove(map, hashv, name);
-      free(removed);
+      ck_hs_remove(map, hashv, name);
     }
   }
   stats_add_tag(map, tagcat, tagval);
