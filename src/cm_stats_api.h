@@ -35,6 +35,10 @@
 #include <stdint.h>
 #include <cm_units.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct stats_recorder_t stats_recorder_t;
 typedef struct stats_ns_t stats_ns_t;
 typedef struct stats_handle_t stats_handle_t;
@@ -248,4 +252,7 @@ int
   stats_recorder_capture(stats_recorder_t *rec, bool hist_since_last,
                          stats_capture_f cb, void *cl);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

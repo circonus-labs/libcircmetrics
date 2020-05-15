@@ -31,6 +31,10 @@
 #ifndef CM_PUBLISH_API_H
 #define CM_PUBLISH_API_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct stats_publisher stats_publisher_t;
 
 stats_publisher_t *
@@ -45,4 +49,7 @@ bool
 bool
   stats_publisher_set_period(stats_publisher_t *, int period_ms);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
