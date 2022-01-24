@@ -43,7 +43,7 @@ static inline unsigned int __get_fanout(unsigned int fanout) {
       int f = circmetrics_tid;
       circmetrics_tid = 0;
       while(f) {
-        circmetrics_tid = circmetrics_tid | (f & 0x7f);
+        circmetrics_tid = circmetrics_tid ^ (f & 0x7f);
         f >>= 7;
       }
     }
